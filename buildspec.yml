@@ -22,7 +22,7 @@ phases:
   pre_build:
     commands:
       # 환경 변수 설정
-      - export NEW_LAUNCH_CONFIG_NAME=new-launch-config-$(date +%s)
+      - export NEW_LAUNCH_TEMPLATE_NAME=new-launch-template-$(date +%s)
       - export SECURITY_GROUP_ID=$(aws ec2 describe-security-groups --filters "Name=group-name,Values=$SECURITY_GROUP_NAME" --query "SecurityGroups[0].GroupId" --output text)  # 미리 생성된 Security Group ID
       - export VPC_ID=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=$VPC_NAME" --query "Vpcs[0].VpcId" --output text)  # VPC ID를 환경 변수로 설정
       - export TARGET_GROUP_ARN=$(aws elbv2 describe-target-groups --names $TARGET_GROUP_NAME --query "TargetGroups[0].TargetGroupArn" --output text)
@@ -73,30 +73,14 @@ phases:
             fi
         fi
 
-      # 새로운 Launch Configuration 생성
-      #- echo "Creating new Launch Configuration..."
-      #- aws autoscaling create-launch-configuration --launch-configuration-name $NEW_LAUNCH_CONFIG_NAME --image-id ami-0c2acfcb2ac4d02a0 --instance-type $INSTANCE_TYPE --user-data file:///tmp/userdata.sh --security-groups $SECURITY_GROUP_ID --iam-instance-profile $PROFILE_NAME
+      # 새로운 Launch Template 생성
       - echo "Creating new Launch Template..."
-      - export NEW_LAUNCH_TEMPLATE_NAME=new-launch-template-$(date +%s)
-      - |
-        cat > /tmp/launch-template.json << EOF
-        {
-          "ImageId": "ami-0c2acfcb2ac4d02a0",
-          "InstanceType": "$INSTANCE_TYPE",
-          "UserData": "$(base64 -w 0 /tmp/userdata.sh)",
-          "SecurityGroupIds": ["$SECURITY_GROUP_ID"],
-          "IamInstanceProfile": {
-            "Name": "$PROFILE_NAME"
-          }
-        }
-        EOF
-      - aws ec2 create-launch-template --launch-template-name $NEW_LAUNCH_TEMPLATE_NAME --launch-template-data file:///tmp/launch-template.json
-
+      - aws ec2 create-launch-template --launch-template-name $NEW_LAUNCH_TEMPLATE_NAME --version-description "v1" --launch-template-data '{"ImageId":"ami-0c2acfcb2ac4d02a0","InstanceType":"'"$INSTANCE_TYPE"'","IamInstanceProfile":{"Name":"'"$PROFILE_NAME"'"},"SecurityGroupIds":["'"$SECURITY_GROUP_ID"'"],"UserData":"'"$(base64 -w0 /tmp/userdata.sh)"'"}'
 
       # 최초 배포인 경우 ASG 생성, 그렇지 않으면 기존 ASG 업데이트
       - |
-        echo "Creating Auto Scaling Group: $TARGET_ASG_NAME";   
-        aws autoscaling create-auto-scaling-group --auto-scaling-group-name $TARGET_ASG_NAME --launch-template LaunchTemplateName=$NEW_LAUNCH_TEMPLATE_NAME,Version='$Latest' --min-size 1 --max-size 3 --desired-capacity 1 --target-group-arns $TARGET_GROUP_ARN --vpc-zone-identifier $SUBNETS  --tags Key=Name,Value=$TARGET_ASG_NAME;
+        echo "Creating Auto Scaling Group: $TARGET_ASG_NAME";
+        aws autoscaling create-auto-scaling-group --auto-scaling-group-name $TARGET_ASG_NAME --launch-template LaunchTemplateName=$NEW_LAUNCH_TEMPLATE_NAME,Version=1 --min-size 1 --max-size 3 --desired-capacity 1 --target-group-arns $TARGET_GROUP_ARN --vpc-zone-identifier $SUBNETS --tags Key=Name,Value=$TARGET_ASG_NAME
         sleep 30;
 
         echo "Getting instance IDs for ASG: $TARGET_ASG_NAME";
