@@ -48,7 +48,7 @@ Environment="JENKINS_WEBROOT=%C/jenkins/war"
 #Environment="JENKINS_LOG=%L/jenkins/jenkins.log"
 
 # The Java home directory. When left empty, JENKINS_JAVA_CMD and PATH are consulted.
-Environment="JAVA_HOME=/usr/lib/jvm/java-11-amazon-corretto.x86_64"
+Environment="JAVA_HOME=/usr/lib/jvm/java-17-amazon-corretto.x86_64"
 
 # The Java executable. When left empty, JAVA_HOME and PATH are consulted.
 #Environment="JENKINS_JAVA_CMD=/etc/alternatives/java"
